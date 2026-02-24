@@ -17,6 +17,7 @@ from datetime import datetime
 # 導入自定義模組
 from weather_api import get_weather_data, extract_temperature_data, save_temperature_data
 from weather_map import create_weather_map, create_temperature_heatmap
+from distance_calculator import calculate_distances_to_taipei_station, save_distance_data, print_distance_summary
 
 
 def main():
@@ -28,6 +29,8 @@ def main():
                       help='跳過 API 請求，使用現有數據')
     parser.add_argument('--map-only', action='store_true',
                       help='只生成地圖，不獲取新數據')
+    parser.add_argument('--distance-only', action='store_true',
+                      help='只計算距離分析，不生成地圖')
     
     args = parser.parse_args()
     
@@ -53,7 +56,35 @@ def main():
             sys.exit(1)
     
     # 步驟 2: 建立地圖視覺化
-    print("\n🗺️  步驟 2: 建立地圖視覺化...")
+    if not args.distance_only:
+        print("\n🗺️  步驟 2: 建立地圖視覺化...")
+        
+        # 載入最新的氣象數據
+        output_dir = 'outputs'
+        json_files = [f for f in os.listdir(output_dir) 
+                    if f.startswith('temperature_data_') and f.endswith('.json')]
+        
+        if not json_files:
+            print("❌ 找不到氣象數據檔案")
+            sys.exit(1)
+        
+        latest_file = sorted(json_files)[-1]
+        json_path = os.path.join(output_dir, latest_file)
+        
+        import json
+        with open(json_path, 'r', encoding='utf-8') as f:
+            weather_data = json.load(f)
+        
+        # 建立溫度分布地圖
+        print("   📍 建立溫度分布地圖...")
+        create_weather_map(weather_data)
+        
+        # 建立溫度熱力圖
+        print("   🔥 建立溫度熱力圖...")
+        create_temperature_heatmap(weather_data)
+    
+    # 步驟 3: 計算距離分析
+    print("\n📏 步驟 3: 計算測站到台北車站距離...")
     
     # 載入最新的氣象數據
     output_dir = 'outputs'
@@ -71,28 +102,30 @@ def main():
     with open(json_path, 'r', encoding='utf-8') as f:
         weather_data = json.load(f)
     
-    # 建立溫度分布地圖
-    print("   📍 建立溫度分布地圖...")
-    create_weather_map(weather_data)
+    # 計算距離
+    stations_with_distance = calculate_distances_to_taipei_station(weather_data)
     
-    # 建立溫度熱力圖
-    print("   🔥 建立溫度熱力圖...")
-    create_temperature_heatmap(weather_data)
+    # 顯示距離摘要
+    print_distance_summary(stations_with_distance)
     
-    # 步驟 3: 顯示結果摘要
-    print("\n📊 步驟 3: 分析結果摘要")
-    print("-" * 40)
+    # 儲存距離數據
+    save_distance_data(stations_with_distance)
     
-    valid_stations = [station for station in weather_data 
-                   if station['weather_elements'].get('temperature') 
-                   and station['weather_elements']['temperature'] != '-99']
-    
-    if valid_stations:
-        temps = [float(s['weather_elements']['temperature']) for s in valid_stations]
-        print(f"有效測站數量: {len(valid_stations)}")
-        print(f"平均溫度: {sum(temps)/len(temps):.1f}°C")
-        print(f"最高溫度: {max(temps):.1f}°C")
-        print(f"最低溫度: {min(temps):.1f}°C")
+    # 步驟 4: 顯示結果摘要
+    if not args.distance_only:
+        print("\n📊 步驟 4: 分析結果摘要")
+        print("-" * 40)
+        
+        valid_stations = [station for station in weather_data 
+                       if station['weather_elements'].get('temperature') 
+                       and station['weather_elements']['temperature'] != '-99']
+        
+        if valid_stations:
+            temps = [float(s['weather_elements']['temperature']) for s in valid_stations]
+            print(f"有效測站數量: {len(valid_stations)}")
+            print(f"平均溫度: {sum(temps)/len(temps):.1f}°C")
+            print(f"最高溫度: {max(temps):.1f}°C")
+            print(f"最低溫度: {min(temps):.1f}°C")
     
     print(f"\n📁 輸出檔案位置: {os.path.abspath(output_dir)}")
     print("\n✅ 分析完成！")
