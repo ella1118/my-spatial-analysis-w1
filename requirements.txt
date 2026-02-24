@@ -1,0 +1,12 @@
+# Weather Data Visualization Project Dependencies
+
+# Core dependencies
+requests==2.32.5
+python-dotenv==1.2.1
+folium==0.20.0
+pandas==2.3.3
+numpy==2.3.3
+
+# Optional dependencies for data analysis
+# matplotlib==3.10.7  # Uncomment if you need plotting
+# seaborn==0.13.2    # Uncomment if you need statistical plots
